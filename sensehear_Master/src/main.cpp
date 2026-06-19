@@ -2,7 +2,7 @@
 #include <ESP8266WiFi.h>
 #include <espnow.h>
 #include <Wire.h>
-#include "SH1106Wire.h"
+#include "SH1106Wire.h" 
 #include <Keypad.h>
 
 // --- OLED Display Configuration ---
@@ -18,8 +18,8 @@ char keys[ROWS][COLS] = {
   {'*','0','#','D'}  // # = Confirm Call, * = Clear Input
 };
 
-byte rowPins[ROWS] = {D0, D3, D4, D5}; 
-byte colPins[COLS] = {D6, D7, D8, D10}; 
+byte rowPins[ROWS] = {D0, D3, D4, D5};   
+byte colPins[COLS] = {D6, D7, D9, D10}; 
 
 Keypad keypad = Keypad(makeKeymap(keys), rowPins, colPins, ROWS, COLS);
 
@@ -56,8 +56,7 @@ void updateHomeScreen() {
   display.display();
   
   Serial.println(F("\n--- [SYSTEM READY] ---"));
-  Serial.println(F("Enter commands via Keypad or Serial Monitor:"));
-  Serial.println(F("Type 'A' for Bell, 'B' for Emergency, 'C' to Call a student."));
+  Serial.println(F("Awaiting keypad matrix commands..."));
 }
 
 void debugAndSendData() {
@@ -114,22 +113,15 @@ void setup() {
 
 // --- Main Loop Execution ---
 void loop() {
-  char key = keypad.getKey(); 
-
-  // Poll virtual Serial Monitor if no hardware keypad press is detected
-  if (!key && Serial.available() > 0) {
-    key = Serial.read();
-    if (key == '\n' || key == '\r') {
-      key = 0; 
-    } else {
-      Serial.print(F("Serial Monitor Input Detected: "));
-      Serial.println(key);
-    }
-  }
+  char key = keypad.getKey(); // Poll hardware keypad matrix only
 
   if (key) {
+    // Log the pressed key immediately to the Serial Monitor
+    Serial.print(F("Keypad Input Detected: "));
+    Serial.println(key);
+
     if (!callMode) {
-      if (key == 'A' || key == 'a') { 
+      if (key == 'A') { 
         display.clear();
         display.drawString(0, 20, "Sending Bell Alert...");
         display.display();
@@ -138,7 +130,7 @@ void loop() {
         myData.studentID = 0;   
         debugAndSendData();
       } 
-      else if (key == 'B' || key == 'b') { 
+      else if (key == 'B') { 
         display.clear();
         display.drawString(0, 20, "!!! EMERGENCY !!!");
         display.drawString(0, 32, "Sending Blast...");
@@ -148,7 +140,7 @@ void loop() {
         myData.studentID = 0;   
         debugAndSendData();
       } 
-      else if (key == 'C' || key == 'c') { 
+      else if (key == 'C') { 
         callMode = true;
         inputBuffer = "";
         display.clear();
@@ -159,13 +151,16 @@ void loop() {
         Serial.println(F("System shifted to Student Call Mode. Type ID digits, then '#' to confirm or '*' to cancel."));
       }
     } 
-    else { 
+    else { // When Call Mode is Active
       if (key >= '0' && key <= '9') {
         inputBuffer += key;
         display.clear();
         display.drawString(0, 0, "ENTER STUDENT ID:");
         display.drawString(0, 20, inputBuffer);
         display.display();
+        
+        Serial.print(F("Current ID Buffer: "));
+        Serial.println(inputBuffer);
       } 
       else if (key == '#') { 
         if (inputBuffer.length() > 0) {
@@ -185,10 +180,10 @@ void loop() {
       } 
       else if (key == '*') { 
         callMode = false;
-        Serial.println(F("Operation canceled by user."));
+        Serial.println(F("Operation canceled via keypad."));
         updateHomeScreen();
       }
     }
   }
-  yield(); // Keep the background watchdog timer happy
+  yield(); 
 }
